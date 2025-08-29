@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" /> <!-- Sets character encoding to UTF-8 so all characters display properly -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" /> <!-- Makes the page responsive on mobile -->
+  <title>Notice Tokenizer</title> <!-- Title of the web page -->
+
+  <!-- ================== CSS Styles ================== -->
+  <style>
+    /* Root variables for colors, radius, shadows */
+    :root{
+      --bg: #0b1020; /* Background color */
+      --panel: #111831; /* Panel background */
+      --panel-2: #0f1530; /* Darker panel */
+      --ink: #e9eefc; /* Text color */
+      --muted: #a7b0cc; /* Muted text color */
+      --accent: #6ea8fe; /* Accent color */
+      --accent-2: #9b8cff; /* Secondary accent */
+      --ok: #6ef3c5; /* Success color */
+      --warn: #ffd479; /* Warning color */
+      --radius: 16px; /* Rounded corners */
+      --shadow: 0 10px 30px rgba(0,0,0,.35); /* Box shadow */
+    }
+
+    /* Reset box-sizing */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+
+    /* Body styling */
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--ink);
+      background: radial-gradient(1200px 600px at 80% -10%, #1d2a6d22, transparent),
+                         radial-gradient(800px 400px at -10% 10%, #5a34f815, transparent), var(--bg);
+      line-height:1.45;
+    }
+
+    /* Sticky header bar */
+    header{
+      position:sticky; top:0; z-index:5;
+      backdrop-filter: blur(8px);
+      background: linear-gradient(90deg, #18224a, #1a1f3a);
+      border-bottom: 1px solid #2a3566;
+      box-shadow: var(--shadow);
+    }
+
+    .wrap{max-width:1100px; margin:0 auto; padding:20px;} /* Container */
+    .banner{display:flex; align-items:center; justify-content:space-between; gap:16px;} /* Header row */
+
+    .title{
+      font-size:clamp(18px, 2.6vw, 28px);
+      font-weight:800;
+      letter-spacing:.3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip:text; color:transparent; /* Gradient text */
+    }
+    .subtitle{color:var(--muted); font-size:14px;}
+
+    main{padding:28px 20px 44px}
+    .grid{display:grid; grid-template-columns:1.1fr .9fr; gap:22px} /* Two-column layout */
+    @media (max-width: 960px){ .grid{grid-template-columns:1fr;}} /* Stack on small screens */
+
+    /* Card styling */
+    .card{background: linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid #25305b; border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card h3{margin:0 0 10px; font-size:18px}
+    .card .card-body{padding:18px}
+
+    /* Textarea styling */
+    textarea{
+      width:100%; min-height:260px; resize:vertical; padding:14px 16px;
+      background:#0d1430; color:var(--ink); border:1px solid #283064; border-radius:12px;
+      outline: none; font-size:15px; line-height:1.5; transition:border .2s ease;
+    }
+    textarea:focus{border-color:#6ea8fe55; box-shadow:0 0 0 3px #6ea8fe22}
+
+    /* Controls (buttons, checkboxes, etc.) */
+    .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px}
+    .pill{display:inline-flex; align-items:center; gap:8px; border:1px solid #2a3566; background:#0d1430; color:var(--ink);
+      padding:10px 14px; border-radius:999px; cursor:pointer; user-select:none; font-size:13px;}
+    .pill input{accent-color: var(--accent);} /* Checkbox/radio accent */
+
+    /* Buttons */
+    .btn{appearance:none; border:none; cursor:pointer; border-radius:12px; padding:12px 16px; font-weight:700;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#081024;
+      box-shadow: 0 6px 20px #6ea8fe40; transition: transform .06s ease, filter .2s ease;}
+    .btn:hover{filter: brightness(1.05)}
+    .btn:active{transform: translateY(1px)}
+    .btn.secondary{background:#121a3c; color:var(--ink); border:1px solid #2a3566; box-shadow:none}
+
+    /* Stats grid */
+    .stats{display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-top:12px}
+    @media (max-width: 680px){ .stats{grid-template-columns: repeat(2,1fr);} }
+    .stat{background:#0d1430; border:1px solid #25305b; border-radius:12px; padding:14px}
+    .stat .k{font-size:22px; font-weight:800}
+    .stat .k.small{font-size:18px}
+    .stat .l{color:var(--muted); font-size:12px}
+
+    /* Token cloud (chips display) */
+    .tokens{ margin-top:14px; }
+    .token-cloud{ display:flex; flex-wrap:wrap; gap:8px; max-height:260px; overflow:auto; padding:8px; background:#0d1430; border:1px dashed #2a3566; border-radius:12px }
+    .chip{ padding:8px 10px; border-radius:999px; border:1px solid #2a3566; background:#0e1736; font-size:12px }
+
+    .footer-note{ color:var(--muted); font-size:12px; margin-top:10px }
+    .row{ display:flex; gap:10px; flex-wrap:wrap }
+    .grow{ flex:1 }
+  </style>
+</head>
+
+<body>
+  <!-- Header with title and buttons -->
+  <header>
+    <div class="wrap banner">
+      <div>
+        <div class="title">Notice Tokenizer</div>
+        <div class="subtitle">Paste a notice, choose a mode, and instantly break it into words, sentences, chars, or lines.</div>
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="sampleBtn" title="Insert a sample notice">Sample</button>
+        <button class="btn" id="clearBtn" title="Clear input and results">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main grid: Input + Output side by side -->
+  <main class="wrap">
+    <div class="grid">
+      <!-- Input section -->
+      <section class="card">
+        <div class="card-body">
+          <h3>Notice Text</h3>
+          <textarea id="input" placeholder="Paste or type your notice here…"></textarea>
+          <!-- Mode selection and filters -->
+          <div class="controls">
+            <label class="pill"><input type="radio" name="mode" value="words" checked> Words</label>
+            <label class="pill"><input type="radio" name="mode" value="sentences"> Sentences</label>
+            <label class="pill"><input type="radio" name="mode" value="chars"> Characters</label>
+            <label class="pill"><input type="radio" name="mode" value="lines"> Lines</label>
+            <label class="pill"><input type="checkbox" id="lower"> Lowercase</label>
+            <label class="pill"><input type="checkbox" id="unique"> Unique only</label>
+            <label class="pill"><input type="checkbox" id="stop"> Remove common stopwords (EN)</label>
+          </div>
+          <!-- Action buttons -->
+          <div class="controls">
+            <button class="btn" id="tokenizeBtn">Tokenize</button>
+            <button class="btn secondary" id="copyBtn">Copy Tokens</button>
+            <button class="btn secondary" id="downloadBtn">Download .txt</button>
+          </div>
+          <div class="footer-note">Tip: Toggle “Lowercase” before “Unique only” for deduping regardless of case.</div>
+        </div>
+      </section>
+
+      <!-- Output section -->
+      <section class="card">
+        <div class="card-body">
+          <h3>Results</h3>
+          <!-- Statistics -->
+          <div class="stats">
+            <div class="stat"><div class="k" id="count">0</div><div class="l">Tokens</div></div>
+            <div class="stat"><div class="k" id="uniqueCount">0</div><div class="l">Unique</div></div>
+            <div class="stat"><div class="k small" id="avgLen">0</div><div class="l">Avg Length</div></div>
+            <div class="stat"><div class="k small" id="readingTime">0s</div><div class="l">~Reading Time</div></div>
+          </div>
+          <!-- Token list -->
+          <div class="tokens">
+            <div id="tokenCloud" class="token-cloud" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ================== JavaScript ================== -->
+  <script>
+    // --- Stopwords list (ignored words if filter is checked) ---
+    const STOP = new Set(['a','an','and','are','as','at','be','but','by','for','if','in','into','is','it','no','not','of','on','or','such','that','the','their','then','there','these','they','this','to','was','will','with','we','our','you','your','from','until','before','after','within','hereby','herein','hereof','hereunder']);
+
+    // Utility shortcuts to get elements by ID
+    const el = (id) => document.getElementById(id);
+    const input = el('input');
+    const tokenCloud = el('tokenCloud');
+    const countEl = el('count');
+    const uniqueCountEl = el('uniqueCount');
+    const avgLenEl = el('avgLen');
+    const readingEl = el('readingTime');
+
+    // Find selected tokenization mode
+    const getMode = () => (document.querySelector('input[name="mode"]:checked')?.value || 'words');
+
+    // Function to break text into tokens depending on mode
+    function tokenize(text, mode){
+      if(!text) return [];
+      let t = text;
+      if(el('lower').checked) t = t.toLowerCase(); // Lowercase option
+
+      switch(mode){
+        case 'sentences':
+          return t.replace(/\s+/g,' ').trim().split(/(?<=[.!?])\s+/); // Split by sentence end punctuation
+        case 'chars':
+          return Array.from(t); // Every character
+        case 'lines':
+          return t.split(/\r?\n/); // Split by new lines
+        case 'words':
+        default:
+          const m = t.match(/\p{L}+(?:'\p{L}+)?|\d+/gu); // Match words/numbers
+          return m || [];
+      }
+    }
+
+    // Apply filters: stopwords and uniqueness
+    function applyFilters(tokens){
+      if(el('stop').checked){ tokens = tokens.filter(tok => !STOP.has(tok)); }
+      if(el('unique').checked){
+        const seen = new Set();
+        tokens = tokens.filter(tok => (seen.has(tok) ? false : (seen.add(tok), true)));
+      }
+      return tokens;
+    }
+
+    // Calculate statistics
+    function stats(tokens){
+      const n = tokens.length;
+      const uniq = new Set(tokens).size;
+      const avg = n ? (tokens.reduce((a,b)=>a+b.length,0)/n) : 0;
+      const seconds = Math.max(1, Math.round((n/200)*60)); // reading time ~200wpm
+      return {n, uniq, avg: avg.toFixed(2), seconds};
+    }
+
+    // Render tokens as chips
+    function renderTokens(tokens){
+      tokenCloud.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      tokens.forEach(tok => {
+        const b = document.createElement('span');
+        b.className = 'chip';
+        b.textContent = tok;
+        frag.appendChild(b);
+      });
+      tokenCloud.appendChild(frag);
+    }
+
+    // Main run function
+    function run(){
+      const mode = getMode();
+      const raw = input.value;
+      let toks = tokenize(raw, mode);
+      toks = applyFilters(toks);
+      const s = stats(toks);
+      countEl.textContent = s.n;
+      uniqueCountEl.textContent = s.uniq;
+      avgLenEl.textContent = s.avg;
+      readingEl.textContent = s.seconds + 's';
+      renderTokens(toks);
+    }
+
+    // Button events
+    document.getElementById('tokenizeBtn').addEventListener('click', run);
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const chips = [...tokenCloud.querySelectorAll('.chip')].map(x=>x.textContent);
+      const text = chips.join('\n');
+      try{ await navigator.clipboard.writeText(text); toast('Tokens copied'); }
+      catch{ toast('Copy failed'); }
+    });
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const chips = [...tokenCloud.querySelectorAll('.chip')].map(x=>x.textContent);
+      const blob = new Blob([chips.join('\n')], {type:'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'tokens.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      input.value = ''; tokenCloud.innerHTML = ''; countEl.textContent = uniqueCountEl.textContent = '0'; avgLenEl.textContent = '0'; readingEl.textContent='0s';
+    });
+    document.getElementById('sampleBtn').addEventListener('click', () => {
+      input.value = `NOTICE\nAll students are hereby informed that the Annual Tech Symposium will be held on Friday, 19 September, at 10:00 AM in the Main Auditorium.\n\nRegistration closes on 12 September. Please bring your ID cards. For queries, contact the Student Affairs Office.`;
+      run();
+    });
+
+    // Toast popup feedback
+    function toast(msg){
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = `position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#0d1430; color:var(--ink); border:1px solid #2a3566; padding:10px 14px; border-radius:12px; box-shadow:var(--shadow); z-index:50;`;
+      document.body.appendChild(t);
+      setTimeout(()=>{ t.remove(); }, 1400);
+    }
+
+    // Keyboard shortcut Ctrl+Enter to run
+    document.addEventListener('keydown', e=>{
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='enter') run();
+    });
+  </script>
+</body>
+</html>
